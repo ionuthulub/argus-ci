@@ -288,10 +288,11 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
         resource_content = [line.replace('"', '^"') for line in resource_content]
         # escape &
         resource_content = [line.replace('&', '^&') for line in resource_content]
+        # escape )
+        resource_content = [line.replace(')', '^)') for line in resource_content]
 
-        resource_content = '&echo.'.join(resource_content)
-        resource_content = '(echo.' + resource_content + ')'
-        self._execute('> {0} echo {1}'.format(remote_path, resource_content))
+        command = '(echo.' + '&echo.'.join(resource_content) + ')'
+        self._execute('> {0} {1}'.format(remote_path, command))
 
 
 class CloudbaseinitScriptRecipe(CloudbaseinitRecipe):
