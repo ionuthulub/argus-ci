@@ -17,6 +17,7 @@
 
 import ntpath
 import os
+import re
 import socket
 
 import six
@@ -40,12 +41,16 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
     def wait_for_boot_completion(self):
         LOG.info("Waiting for boot completion...")
 
-        wait_cmd = ('powershell "(Get-WmiObject Win32_Account | '
-                    'where -Property Name -contains {0}).Name"'
-                    .format(self._conf.openstack.image_username))
+        wait_cmd = ('net user "{0}"'.format(self._conf.openstack.image_username))
+
+        def boot_completed(stdout, username=self._conf.openstack.image_username):
+            if re.match('User name\s*{0}'.format(username), stdout):
+                return True
+            return False
+
         self._execute_until_condition(
             wait_cmd,
-            lambda stdout: stdout.strip() == self._conf.openstack.image_username,
+            boot_completed,
             count=COUNT, delay=DELAY)
 
     def execution_prologue(self):
