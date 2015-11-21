@@ -55,11 +55,7 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
 
     def execution_prologue(self):
         LOG.info("Retrieve common module for proper script execution.")
-
-        cmd = ("powershell Invoke-webrequest -uri "
-               "{}/windows/common.psm1 -outfile C:\\common.psm1"
-               .format(self._conf.argus.resources))
-        self._execute(cmd)
+        self._copy_resource('windows/common.psm1', r'C:\common.psm1')
 
     def get_installation_script(self):
         """Get an insallation script for CloudbaseInit."""
@@ -279,6 +275,23 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
             "C:\\cloudbaseinit_unattended",
             "C:\\cloudbaseinit_normal"]
         self._wait_cbinit_finalization(searched_paths=paths)
+
+    def _copy_resource(self, resource, remote_path):
+        """Copies a resource from the resources folder to the remote host"""
+        local_path = os.path.join(self._conf.argus.resources, resource)
+
+        # read the file
+        resource_content = open(local_path, 'r').readlines()
+        # strip the \n at the end of each line
+        resource_content = [line[:-1] for line in resource_content]
+        # escape "
+        resource_content = [line.replace('"', '^"') for line in resource_content]
+        # escape &
+        resource_content = [line.replace('&', '^&') for line in resource_content]
+
+        resource_content = '&echo.'.join(resource_content)
+        resource_content = '(echo.' + resource_content + ')'
+        self._execute('> {0} echo {1}'.format(remote_path, resource_content))
 
 
 class CloudbaseinitScriptRecipe(CloudbaseinitRecipe):
