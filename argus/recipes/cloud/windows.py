@@ -279,7 +279,7 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
 
     def _copy_resource(self, resource, remote_path):
         """Copies a resource from the resources folder to the remote host"""
-        local_path = os.path.join(self._conf.argus.resources, resource)
+        local_path = os.path.join(self._conf.argus.local_resources, resource)
 
         # read the file
         resource_content = open(local_path, 'r').readlines()
