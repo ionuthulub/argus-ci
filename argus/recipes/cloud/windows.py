@@ -293,14 +293,14 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
         """Copies a resource from the resources folder to the remote host"""
         resource_content = util.get_resource(resource)
 
-        # replace \n with &echo.
-        resource_content = resource_content.replace('\n', '&echo.')
         # escape "
         resource_content = resource_content.replace('"', '^"')
         # escape &
         resource_content = resource_content.replace('&', '^&')
         # escape )
         resource_content = resource_content.replace(')', '^)')
+        # replace \n with &echo.
+        resource_content = resource_content.replace('\n', '&echo.')
 
         command = '(echo.' + resource_content + ')'
         self._execute('> {0} {1}'.format(remote_path, command))
