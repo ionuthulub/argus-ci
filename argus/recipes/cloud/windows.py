@@ -294,13 +294,13 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
         resource_content = util.get_resource(resource)
 
         # replace \n with &echo.
-        resource_content = [line.replace('\n', '&echo.') for line in resource_content]
+        resource_content = resource_content.replace('\n', '&echo.')
         # escape "
-        resource_content = [line.replace('"', '^"') for line in resource_content]
+        resource_content = resource_content.replace('"', '^"')
         # escape &
-        resource_content = [line.replace('&', '^&') for line in resource_content]
+        resource_content = resource_content.replace('&', '^&')
         # escape )
-        resource_content = [line.replace(')', '^)') for line in resource_content]
+        resource_content = resource_content.replace(')', '^)')
 
         command = '(echo.' + resource_content + ')'
         self._execute('> {0} {1}'.format(remote_path, command))
