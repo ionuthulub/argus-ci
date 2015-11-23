@@ -1,5 +1,5 @@
 # Nano server does not include Invoke-WebRequest
-function Invoke-WebRequest
+function InvokeFastWebRequest
 {
     [CmdletBinding()]
     Param(

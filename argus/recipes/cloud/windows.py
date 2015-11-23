@@ -19,6 +19,10 @@ import ntpath
 import os
 import re
 import socket
+try:
+    import urlparse
+except ImportError:
+    import urllib.parse as urlparse
 
 import six
 from winrm import exceptions as winrm_exceptions
@@ -37,6 +41,7 @@ DELAY = 20
 
 class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
     """Recipe for preparing a Windows instance."""
+    _invoke_webrequest_cmd = 'Invoke-WebRequest'
 
     def wait_for_boot_completion(self):
         LOG.info("Waiting for boot completion...")
@@ -59,24 +64,19 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
         stdout = self._execute('powershell Invoke-WebRequest')
         if 'CommandNotFoundException' in stdout:
             target_dir = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\' \
-                         'Modules\\Invoke-WebRequest'
+                         'Modules\\InvokeFastWebRequest'
             self._execute(r'mkdir {0}'.format(target_dir))
-            target_file = os.path.join(target_dir, 'Invoke-WebRequest.psm1')
-            self._copy_resource('windows/Invoke-WebRequest.psm1', target_file)
+            target_file = os.path.join(target_dir, 'InvokeFastWebRequest.psm1')
+            self._copy_resource('windows/InvokeFastWebRequest.psm1', target_file)
+            self.__class__._invoke_webrequest_cmd = 'InvokeFastWebRequest'
 
         LOG.info("Retrieve common module for proper script execution.")
-        cmd = ("powershell Invoke-webrequest -uri "
-               "{}/windows/common.psm1 -outfile C:\\common.psm1"
-               .format(self._conf.argus.resources))
-        self._execute(cmd)
+        self._download_resource('windows/common.psm1', 'C:\\common.psm1')
 
     def get_installation_script(self):
         """Get an insallation script for CloudbaseInit."""
         LOG.info("Retrieve an installation script for CloudbaseInit.")
-        cmd = ("powershell Invoke-webrequest -uri "
-               "{}/windows/installCBinit.ps1 -outfile C:\\installcbinit.ps1"
-               .format(self._conf.argus.resources))
-        self._execute(cmd)
+        self._download_resource('windows/installCBinit.ps1', 'C:\\installcbinit.ps1')
 
     def install_cbinit(self, service_type):
         """Run the installation script for CloudbaseInit."""
@@ -105,11 +105,8 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
         self._grab_cbinit_installation_log()
 
     def _deploy_using_scheduled_task(self, installer, service_type):
-        cmd = ("powershell Invoke-webrequest -uri "
-               "{}/windows/schedule_installer.bat -outfile "
-               "C:\\schedule_installer.bat"
-               .format(self._conf.argus.resources))
-        self._execute(cmd)
+        self._download_resource('windows/schedule_installer.bat',
+                                'C:\\schedule_installer.bat')
 
         # Now run it.
         cmd = ("C:\\\\schedule_installer.bat {0} {1}"
@@ -148,11 +145,10 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
         LOG.debug("Download and extract installation bundle.")
         if link.startswith("\\\\"):
             cmd = 'copy "{}" "C:\\install.zip"'.format(link)
+            self._execute(cmd)
         else:
-            cmd = ("powershell Invoke-webrequest -uri "
-                   "{} -outfile 'C:\\install.zip'"
-                   .format(link))
-        self._execute(cmd)
+            self._download_file(link, 'C:\\install.zip')
+
         cmds = [
             "Add-Type -A System.IO.Compression.FileSystem",
             "[IO.Compression.ZipFile]::ExtractToDirectory("
@@ -230,11 +226,7 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
                              'cloudbaseinit')
 
         # Get the shell patching script and patch the installation.
-        cmd = ("powershell Invoke-Webrequest -uri "
-               "{}/windows/patch_shell.ps1 -outfile "
-               "C:\\patch_shell.ps1"
-               .format(self._conf.argus.resources))
-        self._execute(cmd)
+        self._download_resource('windows/patch_shell.ps1', 'C:\\patch_shell.ps1')
 
         escaped = introspection.escape_path(cbinit)
         self._execute('powershell "C:\\\\patch_shell.ps1 \"{}\""'
@@ -244,10 +236,7 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
         """Prepare the instance for the actual tests, by running sysprep."""
         LOG.info("Running sysprep...")
 
-        cmd = ("powershell Invoke-webrequest -uri "
-               "{}/windows/sysprep.ps1 -outfile 'C:\\sysprep.ps1'"
-               .format(self._conf.argus.resources))
-        self._execute(cmd)
+        self._download_resource('windows/sysprep.ps1', 'C:\\sysprep.ps1')
         try:
             self._backend.remote_client.run_command(
                 'powershell C:\\sysprep.ps1')
@@ -306,6 +295,14 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
         command = '(echo.' + '&echo.'.join(resource_content) + ')'
         self._execute('> {0} {1}'.format(remote_path, command))
 
+    def _download_file(self, url, path):
+        cmd = ("powershell {0} -uri {1} -outfile {2}"
+               .format(self._invoke_webrequest_cmd, url, path))
+        self._execute(cmd)
+
+    def _download_resource(self, resource, path):
+        resource_url = urlparse.urljoin(self._conf.argus.resources, resource)
+        self._download_file(resource_url, path)
 
 class CloudbaseinitScriptRecipe(CloudbaseinitRecipe):
     """A recipe which adds support for testing .exe scripts."""
@@ -314,10 +311,7 @@ class CloudbaseinitScriptRecipe(CloudbaseinitRecipe):
         super(CloudbaseinitScriptRecipe, self).pre_sysprep()
         LOG.info("Doing last step before sysprepping.")
 
-        cmd = ("powershell Invoke-WebRequest -uri "
-               "{}/windows/test_exe.exe -outfile "
-               "'C:\\Scripts\\test_exe.exe'".format(self._conf.argus.resources))
-        self._execute(cmd)
+        self._download_resource('windows/test_exe.exe', 'C:\\Scripts\\test_exe.exe')
 
 
 class CloudbaseinitCreateUserRecipe(CloudbaseinitRecipe):
@@ -330,10 +324,7 @@ class CloudbaseinitCreateUserRecipe(CloudbaseinitRecipe):
     def pre_sysprep(self):
         super(CloudbaseinitCreateUserRecipe, self).pre_sysprep()
         LOG.info("Creating the user %s...", self._conf.cloudbaseinit.created_user)
-        cmd = ("powershell Invoke-webrequest -uri "
-               "{}/windows/create_user.ps1 -outfile C:\\\\create_user.ps1"
-               .format(self._conf.argus.resources))
-        self._execute(cmd)
+        self._download_resource('windows/create_user.ps1', 'C:\\create_user.ps1')
 
         self._execute('powershell "C:\\\\create_user.ps1 -user {}"'.format(
             self._conf.cloudbaseinit.created_user))
@@ -408,11 +399,8 @@ class CloudbaseinitCloudstackRecipe(CloudbaseinitMockServiceRecipe):
         self._execute(command.format(python))
 
         # Get the cloudstack patching script and patch the installation.
-        cmd = ("powershell Invoke-Webrequest -uri "
-               "{}/windows/patch_cloudstack.ps1 -outfile "
-               "C:\\patch_cloudstack.ps1"
-               .format(self._conf.argus.resources))
-        self._execute(cmd)
+        self._download_resource('windows/patch_cloudstack.ps1',
+                                'C:\\patch_cloudstack.ps1')
 
         escaped = introspection.escape_path(cbinit)
         self._execute('powershell "C:\\\\patch_cloudstack.ps1 \"{}\""'
@@ -489,11 +477,7 @@ class CloudbaseinitLocalScriptsRecipe(CloudbaseinitRecipe):
         super(CloudbaseinitLocalScriptsRecipe, self).pre_sysprep()
         LOG.info("Download reboot-required local script.")
 
-        cmd = ("powershell Invoke-WebRequest -uri "
-               "{}/windows/reboot.cmd -outfile "
-               "'C:\\Scripts\\reboot.cmd'")
-        cmd = cmd.format(self._conf.argus.resources)
-        self._execute(cmd)
+        self._download_resource('windows/reboot.cmd', 'C:\\Scripts\\reboot.cmd')
 
 
 class CloudbaseinitImageRecipe(CloudbaseinitRecipe):
