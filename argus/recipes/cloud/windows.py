@@ -67,9 +67,7 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
                          'Modules\\InvokeFastWebRequest'
             self._execute(r'mkdir {0}'.format(target_dir))
             target_file = os.path.join(target_dir, 'InvokeFastWebRequest.psm1')
-            code = util.get_resource('windows/InvokeFastWebRequest.psm1')
-            with util.create_tempfile(content=code) as tmp:
-                self.remote_client.copy_file(tmp, target_file)
+            self._copy_resource('windows/InvokeFastWebRequest.psm1', target_file)
             self.__class__._invoke_webrequest_cmd = 'InvokeFastWebRequest'
 
         LOG.info("Retrieve common module for proper script execution.")
@@ -290,6 +288,22 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
     def _download_resource(self, resource, path):
         resource_url = urlparse.urljoin(self._conf.argus.resources, resource)
         self._download_file(resource_url, path)
+
+    def _copy_resource(self, resource, remote_path):
+        """Copies a resource from the resources folder to the remote host"""
+        resource_content = util.get_resource(resource)
+
+        # replace \n with &echo.
+        resource_content = [line.replace('\n', '&echo.') for line in resource_content]
+        # escape "
+        resource_content = [line.replace('"', '^"') for line in resource_content]
+        # escape &
+        resource_content = [line.replace('&', '^&') for line in resource_content]
+        # escape )
+        resource_content = [line.replace(')', '^)') for line in resource_content]
+
+        command = '(echo.' + resource_content + ')'
+        self._execute('> {0} {1}'.format(remote_path, command))
 
 class CloudbaseinitScriptRecipe(CloudbaseinitRecipe):
     """A recipe which adds support for testing .exe scripts."""
