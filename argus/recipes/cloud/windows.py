@@ -54,13 +54,24 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
             count=COUNT, delay=DELAY)
 
     def execution_prologue(self):
+        # Nano server does not support Invoke-WebRequest so we need to check
+        # if the command exists and add it if not
+        stdout, _, _ = self._execute('powershell Invoke-WebRequest')
+        if 'CommandNotFoundException' in stdout:
+            target_path = r'C:\Windows\System32\WindowsPowerShell\v1.0\'' \
+                          r'Modules\Invoke-WebRequest'
+            self._execute(r'mkdir {0}'.format(target_path))
+            self._copy_resource('windows/Invoke-WebRequest.psm1', target_path)
+
         LOG.info("Retrieve common module for proper script execution.")
-        self._copy_resource('windows/common.psm1', r'C:\common.psm1')
+        cmd = ("powershell Invoke-webrequest -uri "
+               "{}/windows/common.psm1 -outfile C:\\common.psm1"
+               .format(self._conf.argus.resources))
+        self._execute(cmd)
 
     def get_installation_script(self):
         """Get an insallation script for CloudbaseInit."""
         LOG.info("Retrieve an installation script for CloudbaseInit.")
-
         cmd = ("powershell Invoke-webrequest -uri "
                "{}/windows/installCBinit.ps1 -outfile C:\\installcbinit.ps1"
                .format(self._conf.argus.resources))
