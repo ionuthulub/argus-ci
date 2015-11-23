@@ -58,8 +58,8 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
         # if the command exists and add it if not
         stdout = self._execute('powershell Invoke-WebRequest')
         if 'CommandNotFoundException' in stdout:
-            target_dir = r'C:\Windows\System32\WindowsPowerShell\v1.0\'' \
-                          r'Modules\Invoke-WebRequest'
+            target_dir = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\' \
+                         'Modules\\Invoke-WebRequest'
             self._execute(r'mkdir {0}'.format(target_dir))
             target_file = os.path.join(target_dir, 'Invoke-WebRequest.psm1')
             self._copy_resource('windows/Invoke-WebRequest.psm1', target_file)
