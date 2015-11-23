@@ -20,10 +20,12 @@ import logging
 import os
 import pkgutil
 import random
+import shutil
 import socket
 import struct
 import subprocess
 import sys
+import tempfile
 
 import six
 
@@ -60,6 +62,26 @@ NETWORK_KEYS = [
     "dns6",
     "dhcp"
 ]
+
+
+@contextlib.contextmanager
+def create_tempdir():
+    tempdir = tempfile.mkdtemp(prefix="cloudbaseinit-ci-tests")
+    try:
+        yield tempdir
+    finally:
+        shutil.rmtree(tempdir)
+
+
+@contextlib.contextmanager
+def create_tempfile(content=None):
+    with create_tempdir() as temp:
+        file_desc, path = tempfile.mkstemp(dir=temp)
+        os.close(file_desc)
+        if content:
+            with open(path, 'w') as stream:
+                stream.write(content)
+        yield path
 
 
 def get_local_ip():

@@ -15,12 +15,8 @@
 
 
 import collections
-import contextlib
 import ntpath
-import os
 import re
-import shutil
-import tempfile
 
 from argus.introspection.cloud import base
 from argus import exceptions
@@ -34,26 +30,6 @@ SEP = "----\r\n"    # default separator for network details blocks
 NIC_KEYS = ["mac", "address", "gateway", "netmask", "dns", "dhcp"]
 Address = collections.namedtuple("Address", ["v4", "v6"])
 NICDetails = collections.namedtuple("NICDetails", NIC_KEYS)
-
-
-@contextlib.contextmanager
-def _create_tempdir():
-    tempdir = tempfile.mkdtemp(prefix="cloudbaseinit-ci-tests")
-    try:
-        yield tempdir
-    finally:
-        shutil.rmtree(tempdir)
-
-
-@contextlib.contextmanager
-def _create_tempfile(content=None):
-    with _create_tempdir() as temp:
-        file_desc, path = tempfile.mkstemp(dir=temp)
-        os.close(file_desc)
-        if content:
-            with open(path, 'w') as stream:
-                stream.write(content)
-        yield path
 
 
 def _get_ntp_peers(output):
@@ -197,12 +173,11 @@ class InstanceIntrospection(base.CloudInstanceIntrospection):
         return int(self.remote_client.run_command_verbose(cmd))
 
     def username_exists(self, username):
-        cmd = ('powershell "Get-WmiObject Win32_Account | '
-               'where -Property Name -contains {0}"'
-               .format(username))
-
+        cmd = ('net user "{0}"'.format(username))
         stdout = self.remote_client.run_command_verbose(cmd)
-        return bool(stdout)
+        if re.match('User name\s*{0}'.format(username), stdout):
+            return True
+        return False
 
     def get_instance_ntp_peers(self):
         command = 'w32tm /query /peers'
@@ -251,7 +226,7 @@ class InstanceIntrospection(base.CloudInstanceIntrospection):
     def get_cloudbaseinit_traceback(self):
         code = util.get_resource('windows/get_traceback.ps1')
         remote_script = "C:\\{}.ps1".format(util.rand_name())
-        with _create_tempfile(content=code) as tmp:
+        with util.create_tempfile(content=code) as tmp:
             self.remote_client.copy_file(tmp, remote_script)
             stdout = self.remote_client.run_command_verbose(
                 "powershell " + remote_script)
@@ -336,11 +311,6 @@ class InstanceIntrospection(base.CloudInstanceIntrospection):
 
         If a value is an empty string, then that value is missing.
         """
-        cmd = ("powershell Invoke-WebRequest -uri "
-               "{}/windows/network_details.ps1 -outfile "
-               "C:\\network_details.ps1".format(self._conf.argus.resources))
-        self.remote_client.run_command_with_retry(cmd)
-
         # Run and parse the output, where each adapter details
         # block is separated by a specific separator.
         # Each block contains multiple fields separated by EOLs
@@ -374,7 +344,7 @@ class InstanceIntrospection(base.CloudInstanceIntrospection):
     def get_user_flags(self, user):
         code = util.get_resource('windows/get_user_flags.ps1')
         remote_script = "C:\\{}.ps1".format(util.rand_name())
-        with _create_tempfile(content=code) as tmp:
+        with util.create_tempfile(content=code) as tmp:
             self.remote_client.copy_file(tmp, remote_script)
             stdout = self.remote_client.run_command_verbose(
                 "powershell {0} {1}".format(remote_script, user))

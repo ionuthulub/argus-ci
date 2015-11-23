@@ -1,5 +1,5 @@
 function Get-ProgramDir() {
-    $osArch = (Get-WmiObject Win32_OperatingSystem).OSArchitecture
+    $osArch = (Get-CimInstance Win32_OperatingSystem).OSArchitecture
     $programDirs = @($ENV:ProgramFiles)
 
     if($osArch -eq "64-bit")

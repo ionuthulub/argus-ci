@@ -53,7 +53,7 @@ class ConfigurationParser(object):
     def argus(self):
         # Get the argus section
         argus = collections.namedtuple('argus',
-                                       'resources local_resources pause '
+                                       'resources pause '
                                        'file_log log_format dns_nameservers '
                                        'output_directory build arch '
                                        'patch_install git_command')
@@ -61,7 +61,6 @@ class ConfigurationParser(object):
             self._parser, 'argus', 'resources',
             'https://raw.githubusercontent.com/PCManticore/'
             'argus-ci/master/argus/resources')
-        local_resources = _get_default(self._parser, 'argus', 'local_resources')
         pause = self._parser.getboolean('argus', 'pause')
         file_log = _get_default(self._parser, 'argus', 'file_log')
         log_format = _get_default(self._parser, 'argus', 'log_format')
@@ -77,7 +76,7 @@ class ConfigurationParser(object):
         patch_install = _get_default(self._parser, 'argus', 'patch_install')
         git_command = _get_default(self._parser, 'argus', 'git_command')
 
-        return argus(resources, local_resources, pause, file_log, log_format,
+        return argus(resources, pause, file_log, log_format,
                      dns_nameservers, output_directory, build, arch,
                      patch_install, git_command)
 

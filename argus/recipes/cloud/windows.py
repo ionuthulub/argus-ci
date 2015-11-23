@@ -67,11 +67,16 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
                          'Modules\\InvokeFastWebRequest'
             self._execute(r'mkdir {0}'.format(target_dir))
             target_file = os.path.join(target_dir, 'InvokeFastWebRequest.psm1')
-            self._copy_resource('windows/InvokeFastWebRequest.psm1', target_file)
+            code = util.get_resource('windows/InvokeFastWebRequest.psm1')
+            with util.create_tempfile(content=code) as tmp:
+                self.remote_client.copy_file(tmp, target_file)
             self.__class__._invoke_webrequest_cmd = 'InvokeFastWebRequest'
 
         LOG.info("Retrieve common module for proper script execution.")
         self._download_resource('windows/common.psm1', 'C:\\common.psm1')
+
+        self._download_resource('windows/network_details.ps1',
+                                'C:\\network_details.ps1')
 
     def get_installation_script(self):
         """Get an insallation script for CloudbaseInit."""
@@ -276,24 +281,6 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
             "C:\\cloudbaseinit_unattended",
             "C:\\cloudbaseinit_normal"]
         self._wait_cbinit_finalization(searched_paths=paths)
-
-    def _copy_resource(self, resource, remote_path):
-        """Copies a resource from the resources folder to the remote host"""
-        local_path = os.path.join(self._conf.argus.local_resources, resource)
-
-        # read the file
-        resource_content = open(local_path, 'r').readlines()
-        # strip the \n at the end of each line
-        resource_content = [line[:-1] for line in resource_content]
-        # escape "
-        resource_content = [line.replace('"', '^"') for line in resource_content]
-        # escape &
-        resource_content = [line.replace('&', '^&') for line in resource_content]
-        # escape )
-        resource_content = [line.replace(')', '^)') for line in resource_content]
-
-        command = '(echo.' + '&echo.'.join(resource_content) + ')'
-        self._execute('> {0} {1}'.format(remote_path, command))
 
     def _download_file(self, url, path):
         cmd = ("powershell {0} -uri {1} -outfile {2}"
