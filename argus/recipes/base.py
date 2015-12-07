@@ -51,6 +51,10 @@ class BaseRecipe(object):
     def _execute(self, cmd, count=RETRY_COUNT, delay=RETRY_DELAY):
         """Execute until success and return only the standard output."""
 
+        # The following hack redirects the output to a file and then
+        # echos that file; this is needed for nano support.
+        cmd = '1> C:\\stdout.txt 2>&1 {0} && type C:\\stdout.txt'.format(cmd)
+
         # A positive exit code will trigger the failure
         # in the underlying methods as an `ArgusError`.
         # Also, if the retrying limit is reached, `ArgusTimeoutError`
