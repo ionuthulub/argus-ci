@@ -53,7 +53,8 @@ class BaseRecipe(object):
 
         # The following hack redirects the output to a file and then
         # echos that file; this is needed for nano support.
-        cmd = '1> C:\\stdout.txt 2>&1 {0} && type C:\\stdout.txt'.format(cmd)
+        if cmd.startswith('powershell'):
+            cmd = '{0} 1> C:\\stdout.txt 2>&1 && type C:\\stdout.txt'.format(cmd)
 
         # A positive exit code will trigger the failure
         # in the underlying methods as an `ArgusError`.
