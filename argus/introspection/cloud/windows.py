@@ -103,20 +103,24 @@ def get_cbinit_dir(execute_function):
     """Get the location of cloudbase-init from the instance."""
     stdout = execute_function(
         'powershell "(Get-CimInstance  Win32_OperatingSystem).'
-        'OSArchitecture"')
+        'OSArchitecture 1> C:\\stdout.txt 2>&1" && type C:\\stdout.txt')
     architecture = stdout.strip()
 
-    locations = [execute_function('powershell "$ENV:ProgramFiles"')]
+    locations = [execute_function(
+        'powershell "$ENV:ProgramFiles 1> C:\\stdout.txt 2>&1" '
+        '&& type C:\\stdout.txt')]
     if architecture == '64-bit':
         location = execute_function(
-            'powershell "${ENV:ProgramFiles(x86)}"')
+            'powershell "${ENV:ProgramFiles(x86)} 1> C:\\stdout.txt 2>&1" '
+            '&& type C:\\stdout.txt')
         locations.append(location)
 
     for location in locations:
         location = location.strip()
         _location = escape_path(location)
         status = execute_function(
-            'powershell Test-Path "{}\\Cloudbase` Solutions"'.format(
+            'powershell Test-Path "{}\\Cloudbase` Solutions"'
+            ' 1> C:\\stdout.txt 2>&1 && type C:\\stdout.txt'.format(
                 _location)).strip().lower()
 
         if status == "true":
