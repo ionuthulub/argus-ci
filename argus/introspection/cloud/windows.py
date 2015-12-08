@@ -162,7 +162,8 @@ def get_cbinit_key(execute_function):
            "Cloudbase-init")
     key_x64 = ("HKLM:SOFTWARE\\Wow6432Node\\Cloudbase` Solutions\\"
                "Cloudbase-init")
-    cmd = 'powershell "Test-Path {}"'.format(key)
+    cmd = 'powershell "Test-Path {} 1> C:\output.txt 2>&1" >null && ' \
+          'type C:\output.txt'.format(key)
     if execute_function(cmd).strip().lower() == "true":
         return key
     return key_x64
@@ -172,8 +173,9 @@ class InstanceIntrospection(base.CloudInstanceIntrospection):
     """Utilities for introspecting a Windows instance."""
 
     def get_disk_size(self):
-        cmd = ('powershell (Get-WmiObject "win32_logicaldisk | '
-               'where -Property DeviceID -Match C:").Size')
+        cmd = ('powershell "(Get-WmiObject `"win32_logicaldisk | '
+               'where -Property DeviceID -Match C:`").Size 1> C:\output.txt '
+               '2>&1" >null & type C:\output.txt')
         return int(self.remote_client.run_command_verbose(cmd))
 
     def username_exists(self, username):
@@ -197,11 +199,13 @@ class InstanceIntrospection(base.CloudInstanceIntrospection):
             ".ssh", "authorized_keys")
 
     def get_instance_file_content(self, filepath):
-        cmd = 'powershell "cat %s"' % filepath
+        cmd = 'powershell "cat %s 1> C:\output.txt 2>&1" >null && ' \
+              'type C:\output.txt' % filepath
         return self.remote_client.run_command_verbose(cmd)
 
     def get_userdata_executed_plugins(self):
-        cmd = 'powershell "(Get-ChildItem -Path  C:\\ *.txt).Count'
+        cmd = 'powershell "(Get-ChildItem -Path  C:\\ *.txt).Count ' \
+              '1> C:\output.txt 2>&1" >null & type C:\output.txt'
         stdout = self.remote_client.run_command_verbose(cmd)
         return int(stdout)
 
@@ -233,12 +237,14 @@ class InstanceIntrospection(base.CloudInstanceIntrospection):
         with util.create_tempfile(content=code) as tmp:
             self.remote_client.copy_file(tmp, remote_script)
             stdout = self.remote_client.run_command_verbose(
-                "powershell " + remote_script)
+                'powershell "{0} 1> C:\output.txt 2>&1" >null && '
+                'type C:\output.txt'.format(remote_script))
             return stdout.strip()
 
     def _file_exist(self, filepath):
         stdout = self.remote_client.run_command_verbose(
-            'powershell "Test-Path {}"'.format(filepath))
+            'powershell "Test-Path {} 1> C:\output.txt 2>&1" >null && '
+            'type C:\output.txt'.format(filepath))
         return stdout.strip() == 'True'
 
     def instance_exe_script_executed(self):
@@ -281,7 +287,8 @@ class InstanceIntrospection(base.CloudInstanceIntrospection):
          Return a tuple of two elements, the major and the minor
          version.
         """
-        cmd = "powershell (Get-CimInstance Win32_OperatingSystem).Version"
+        cmd = 'powershell "(Get-CimInstance Win32_OperatingSystem).Version ' \
+              '1> C:\output.txt 2>&1" >null && type C:\output.txt'
         stdout = self.remote_client.run_command_verbose(cmd)
         elems = stdout.split(".")
         return list(map(int, elems))[:2]
@@ -302,7 +309,8 @@ class InstanceIntrospection(base.CloudInstanceIntrospection):
     def get_timezone(self):
         command = "[System.TimeZone]::CurrentTimeZone.StandardName"
         stdout = self.remote_client.run_command_verbose(
-            "powershell {}".format(command))
+            'powershell "{} 1> C:\output.txt 2>&1" >null && '
+            'type C:\output.txt'.format(command))
         return stdout
 
     def get_instance_hostname(self):
@@ -319,7 +327,8 @@ class InstanceIntrospection(base.CloudInstanceIntrospection):
         # block is separated by a specific separator.
         # Each block contains multiple fields separated by EOLs
         # and each field contains multiple details separated by spaces.
-        cmd = "powershell C:\\network_details.ps1"
+        cmd = 'powershell "C:\\network_details.ps1 1> C:\output.txt 2>&1" ' \
+              '>null && type C:\output.txt'
         output = self.remote_client.run_command_verbose(cmd)
 
         output = output.replace(SEP, "", 1)
@@ -351,5 +360,6 @@ class InstanceIntrospection(base.CloudInstanceIntrospection):
         with util.create_tempfile(content=code) as tmp:
             self.remote_client.copy_file(tmp, remote_script)
             stdout = self.remote_client.run_command_verbose(
-                "powershell {0} {1}".format(remote_script, user))
+                'powershell "{0} {1} 1> C:\output.txt 2>&1" >null && '
+                'type C:\output.txt'.format(remote_script, user))
             return stdout.strip()
