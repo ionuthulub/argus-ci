@@ -257,7 +257,8 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
         LOG.info("Waiting for the finalization of CloudbaseInit execution...")
 
         # Check if the service actually started.
-        test_cmd = 'powershell Test-Path {}'
+        test_cmd = 'powershell "Test-Path {} 1> C:\output.txt 2>&1" >null ' \
+                   '&& type C:\output.txt'
         check_cmds = [test_cmd.format(introspection.escape_path(path))
                       for path in searched_paths or []]
         for check_cmd in check_cmds:
@@ -267,8 +268,9 @@ class CloudbaseinitRecipe(base.BaseCloudbaseinitRecipe):
                 count=COUNT, delay=DELAY)
 
         # Check if the service finished
-        wait_cmd = ('powershell (Get-Service "| where -Property Name '
-                    '-match cloudbase-init").Status')
+        wait_cmd = ('powershell "(Get-Service `"| where -Property Name '
+                    '-match cloudbase-init`").Status '
+                    '1> C:\output.txt 2>&1" >null && type C:\output.txt')
         self._execute_until_condition(
             wait_cmd,
             lambda out: out.strip() == 'Stopped',
